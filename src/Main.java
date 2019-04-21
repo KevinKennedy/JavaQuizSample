@@ -20,18 +20,40 @@ public class Main implements ActionListener
     };
 
     // The state of the game
-    private enum GameState { AskingQuestion, ShowingAnswer, GameOver }
+    private enum GameState { IntroScreen, AskingQuestion, ShowingAnswer, GameOver, Help }
     private GameState gameState;
 
     private int currentQuestionIndex; // index into the questions array
     private int correctAnswerCount; // how many correct answers the user has provided
 
-    // Controls in the user interface
+    //
+    // Controls in the user interface that
+    // we need access to in other parts of
+    // the class
+    //
+
+    // Controls in the introduction panel
+    private JPanel introPanel;
+    private JButton startGameButton;
+    private JButton quitButton;
+    private JButton helpButton;
+
+    // Controls for the help panel
+    private JPanel helpPanel;
+    private JButton leaveHelpButton;
+
+    // Controls for the main game
+    private JPanel questionPanel;
     private JLabel questionLabel;
     private JButton answer0Button;
     private JButton answer1Button;
     private JLabel messageLabel;
     private JButton nextQuestionButton;
+    private JButton goToIntroButton;
+
+    //
+    // End of the controls section
+    //
 
     // A message we will show to the user
     // Shows the correct answer as well as the final score
@@ -40,7 +62,25 @@ public class Main implements ActionListener
     private Main()
     {
         this.CreateUI();
-        this.StartGame();
+        this.IntroScreen();
+    }
+
+    // Takes the user to the intro screen
+    // Called when the app launches as well as when the
+    // user leaves the help panel and when they want
+    // to restart after finishing a game
+    private void IntroScreen()
+    {
+        this.gameState = GameState.IntroScreen;
+
+        this.UpdateUI();
+    }
+
+    private void ShowHelpPanel()
+    {
+        this.gameState = GameState.Help;
+
+        this.UpdateUI();
     }
 
     // Get us to the first question
@@ -99,10 +139,15 @@ public class Main implements ActionListener
         UpdateUI();
     }
 
-
     // Called after a user presses any button and the game state has been updated
     private void UpdateUI()
     {
+        // show/hide the different main panels
+        this.introPanel.setVisible(this.gameState == GameState.IntroScreen);
+        this.questionPanel.setVisible(this.gameState == GameState.AskingQuestion || this.gameState == GameState.ShowingAnswer || this.gameState == GameState.GameOver);
+        this.helpPanel.setVisible(this.gameState == GameState.Help);
+
+        // Do state-specific updates of the UI
         if(this.gameState == GameState.AskingQuestion)
         {
             // Show the current question to the user
@@ -114,6 +159,7 @@ public class Main implements ActionListener
             this.answer1Button.setEnabled(true);
             this.answer1Button.setText(q.Answer1);
             this.nextQuestionButton.setVisible(false);
+            this.goToIntroButton.setVisible(false);
 
             // no message to show so hide the label control
             this.messageLabel.setVisible(false);
@@ -126,6 +172,7 @@ public class Main implements ActionListener
             this.answer0Button.setEnabled(false);
             this.answer1Button.setEnabled(false);
             this.nextQuestionButton.setVisible(true);
+            this.goToIntroButton.setVisible(false);
             this.messageLabel.setText(this.message);
             this.messageLabel.setVisible(true);
         }
@@ -139,6 +186,7 @@ public class Main implements ActionListener
             this.answer0Button.setEnabled(false);
             this.answer1Button.setEnabled(false);
             this.nextQuestionButton.setVisible(false);
+            this.goToIntroButton.setVisible(true);
             this.messageLabel.setText(this.message);
             this.messageLabel.setVisible(true);
         }
@@ -153,45 +201,28 @@ public class Main implements ActionListener
     {
         JFrame frame = new JFrame("My Quiz");
 
-        // Grid layout for all the controls.
-        // See https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html
-        // for different layout options
-        JPanel mainGrid = new JPanel();
-        mainGrid.setLayout(new GridLayout(0, 1, 0, 20));
-        frame.getContentPane().add(mainGrid);
+        // Create a panel that holds all the sub-panels of the UI
+        // Only one of the sup-panels should be visible at a time.
+        // UpdateUI ensures this
+        JPanel mainPanel = new JPanel();
+        frame.getContentPane().add(mainPanel);
 
-        // Control to show the current question
-        this.questionLabel = new JLabel();
-        mainGrid.add(questionLabel, 0);
+        this.introPanel = this.CreateIntroPanel();
+        mainPanel.add(this.introPanel);
 
-        // Button to show one possible answer
-        this.answer0Button = new JButton();
-        this.answer0Button.addActionListener(this);
-        mainGrid.add(this.answer0Button);
+        this.helpPanel = this.CreateHelpPanel();
+        mainPanel.add(this.helpPanel);
 
-        // Button to show another possible answer
-        this.answer1Button = new JButton();
-        this.answer1Button.addActionListener(this);
-        mainGrid.add(this.answer1Button);
-
-        // Label that shows if the user answered the question correctly
-        // Also will show their final score at the end of the game
-        this.messageLabel = new JLabel();
-        mainGrid.add(this.messageLabel);
-
-        // Button to move to the next question.  This is only shown
-        // after the user answers a question and the game is not over
-        this.nextQuestionButton = new JButton("Next Question");
-        this.nextQuestionButton.addActionListener((this));
-        mainGrid.add(this.nextQuestionButton);
+        this.questionPanel = this.CreateQuestionPanel();
+        mainPanel.add(this.questionPanel);
 
         // Quit the app when escape is pressed.  Cobbled together from
         // stuff found on the Internet
         // https://docs.oracle.com/javase/tutorial/uiswing/misc/keybinding.html
         // https://docs.oracle.com/javase/7/docs/api/java/awt/event/KeyEvent.html
         // https://www.thehelper.net/threads/detecting-the-escape-key-press-in-java.136974/
-        mainGrid.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "quit");
-        mainGrid.getActionMap().put("quit", new AbstractAction() {
+        mainPanel.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "quit");
+        mainPanel.getActionMap().put("quit", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 System.exit(0);
@@ -202,16 +233,115 @@ public class Main implements ActionListener
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         frame.pack();
-        frame.setSize(800,400); // set the default size of the window
+        frame.setSize(800,600); // set the default size of the window
         frame.setVisible(true); // show everything to the user
     }
 
+    private JPanel CreateIntroPanel()
+    {
+        JPanel grid = new JPanel();
+        grid.setLayout(new GridLayout(0, 1, 0, 20));
+
+        this.startGameButton = new JButton("Start Game");
+        this.startGameButton.addActionListener(this);
+        grid.add(this.startGameButton);
+
+        this.quitButton = new JButton("Quit");
+        this.quitButton.addActionListener(this);
+        grid.add(this.quitButton);
+
+        this.helpButton = new JButton("Help");
+        this.helpButton.addActionListener(this);
+        grid.add(this.helpButton);
+
+        return grid;
+    }
+
+    private JPanel CreateHelpPanel()
+    {
+        JPanel grid = new JPanel();
+        grid.setLayout(new GridLayout(0, 1, 0, 20));
+
+        JLabel helpLabel = new JLabel("<html>This is helpful text<br>Line2<br>Line3");
+        grid.add(helpLabel);
+
+        this.leaveHelpButton = new JButton("Back");
+        this.leaveHelpButton.addActionListener(this);
+        grid.add(this.leaveHelpButton);
+
+        return grid;
+    }
+
+    // Create all the user interface components for asking questions
+    private JPanel CreateQuestionPanel()
+    {
+        // Grid layout for all the controls.
+        // See https://docs.oracle.com/javase/tutorial/uiswing/layout/visual.html
+        // for different layout options
+        JPanel grid = new JPanel();
+        grid.setLayout(new GridLayout(0, 1, 0, 20));
+
+        // Control to show the current question
+        this.questionLabel = new JLabel();
+        grid.add(questionLabel, 0);
+
+        // Button to show one possible answer
+        this.answer0Button = new JButton();
+        this.answer0Button.addActionListener(this);
+        grid.add(this.answer0Button);
+
+        // Button to show another possible answer
+        this.answer1Button = new JButton();
+        this.answer1Button.addActionListener(this);
+        grid.add(this.answer1Button);
+
+        // Label that shows if the user answered the question correctly
+        // Also will show their final score at the end of the game
+        this.messageLabel = new JLabel();
+        grid.add(this.messageLabel);
+
+        // Button to move to the next question.  This is only shown
+        // after the user answers a question and the game is not over
+        this.nextQuestionButton = new JButton("Next Question");
+        this.nextQuestionButton.addActionListener(this);
+        grid.add(this.nextQuestionButton);
+
+        // Button that sends the user back to the intro
+        // screen.  Only shown in "GameOver" mode
+        this.goToIntroButton = new JButton("Home");
+        this.goToIntroButton.addActionListener(this);
+        grid.add(this.goToIntroButton);
+
+        return grid;
+    }
 
     // Called when the user presses any button in the UI
     @Override
     public void actionPerformed(ActionEvent e)
     {
-        if(this.gameState == GameState.AskingQuestion)
+        if(this.gameState == GameState.IntroScreen)
+        {
+            if(e.getSource() == this.startGameButton)
+            {
+                this.StartGame();
+            }
+            else if(e.getSource() == this.quitButton)
+            {
+                System.exit(0);
+            }
+            else if(e.getSource() == this.helpButton)
+            {
+                this.ShowHelpPanel();
+            }
+        }
+        else if(gameState == GameState.Help)
+        {
+            if(e.getSource() == this.leaveHelpButton)
+            {
+                this.IntroScreen();
+            }
+        }
+        else if(this.gameState == GameState.AskingQuestion)
         {
             int selectedAnswer = -1;
             if(e.getSource() == this.answer0Button)
@@ -233,6 +363,13 @@ public class Main implements ActionListener
             if(e.getSource() == this.nextQuestionButton)
             {
                 this.OnNextQuestion();
+            }
+        }
+        else if(this.gameState == GameState.GameOver)
+        {
+            if(e.getSource() == this.goToIntroButton)
+            {
+                this.IntroScreen();
             }
         }
     }
